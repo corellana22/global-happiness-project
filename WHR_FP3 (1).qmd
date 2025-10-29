@@ -1,0 +1,746 @@
+---
+title: "Final Project"
+author: 
+  - Chris Orellana
+  - Andrew Guerra
+  - Austin Zhang
+  - Rachel Li
+format: pdf
+editor: visual
+---
+
+# Abstract
+
+"How does the relationship between key predictors (e.g., GDP, social support, life expectancy) and happiness vary across world regions, and what might this imply about region-specific drivers of wellbeing?"
+
+In this report, we explore how the strength of various predictors of happiness---such as GDP per capita, social support, life expectancy, and freedom to make life choices---varies across global regions. Using data from the 2023 World Happiness Report, which includes yearly observations from over 160 countries between 2008 and 2023, we analyze both regional patterns and global trends in the determinants of subjective wellbeing. Our approach combines exploratory data visualization with regression modeling, including interaction terms between region and key predictors, to assess whether certain factors have a stronger association with happiness in some regions than in others. We find that while GDP per capita and social support are consistently strong predictors of happiness, their relative importance differs across regions. These findings highlight the value of region-specific analysis in understanding and improving global wellbeing.
+
+# Introduction
+
+The core of the World Happiness Report (WHR) is a metric known as the Cantril Self-Anchoring Scale, in which respondents are asked:  
+
+*"Please imagine a ladder with steps numbered from 0 at the bottom and 10 at the top. The top of the ladder represents the best possible life for you and the bottom of the ladder represents the worst possible life for you. On which step of the ladder would you say you personally feel you stand at this time?"*
+
+This question avoids explicit references to "happiness" or "well-being", making it broadly interpretable and culturally adaptable. A score of 10 represents the best possible life, while 0 represents the worst. By asking a broad question that ranks from best to worst, we preserve simplicity which makes it suitable for cross-cultural comparison at a global scale. After individual scores are collected for the country, the results are averaged to provide a score representing the country's overall happiness ranking. This score is stored as the Life Ladder variable.
+
+In addition to the Cantril Ladder scores, the dataset includes eight variables that serve as predictors of well-being: Log GDP per Capita, Social support, Healthy life expectancy at birth, Freedom to make life choices, Generosity, Perceptions of corruption, Positive affect, and Negative affect. Together, these variables provide insight into the conditions that shape life satisfaction. 
+
+While these predictors provide a model that holds global applicability at understanding national happiness, it remains unclear whether these predictors carry a varied effect across world regions. Cultural, economic, and political differences may shape how people perceive and prioritize the factors that impact their lives.
+
+This project investigates whether the influence of these predictors on happiness is consistent across regions. We aim to identify whether certain variables are more or less predictive of happiness depending on a region's social and cultural context. For example, in societies where strong social networks are central to daily life, we suspect Social support may be a stronger predictor of happiness than in countries that place greater emphasis on personal freedom or economic success.
+
+# Explorations & Analysis
+
+To better understand the factors associated with global happiness, we began our analysis by examining the size of the data set and the distributions of key predictors included in the World Happiness Report. Specifically, we focused on variables such as GDP per Capita, social support, healthy life expectancy, freedom to make life choices, generosity, perceptions of corruption, positive affect, and negative affect. By exploring these distributions, we aim to assess the range, variation, and potential skewness of the data. These initial observations provide valuable context for understanding how these factors may relate to self-reported happiness. Through our analysis, we hope to draw conclusions on regional differences.
+
+```{r}
+#| include: false
+library(tidyverse) 
+
+Happiness_Data <- read.csv("whr-2023.csv")
+```
+
+Beginning our exploration, we first created a table to display the number of rows, years, and countries included in the data set.
+
+```{r}
+#| echo: false
+#| warning: false
+# break don of total values
+Happiness_Data %>%
+  summarize(
+    total_rows = n(),
+    total_years = n_distinct(year),
+    total_countries = n_distinct(Country.name)
+  ) %>% knitr::kable()
+
+```
+
+With 165 different countries represented, we have data spanning across 18 years (2005-2022) that contain 2,199 rows of information regarding our 8 different variables.
+
+As previously stated, our Life Ladder variable is the Happiness level. A series of 7 different predictors are used in association with this value that are as follows.
+
+### COMMENTS ON DIST - GDP
+
+-   **Log GDP Per Capita:** This predictor variable represents a country's Gross Domestic Progress (GDP), which measures the average economic output per person and serves as a rough indicator of a country's standard of living. A logarithmic transformation has been applied to help reduce skewness and bring the distribution closer to normal. This transformation makes it easier to observe more sensitive differences in GDP Per Capita across countries.
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig.align: 'center'
+#| out.width: '60%'
+Happiness_Data %>% 
+  filter(is.finite(Log.GDP.per.capita)) %>% 
+  ggplot(data = Happiness_Data, 
+         mapping = aes(x = Log.GDP.per.capita)) +
+  geom_histogram(binwidth = 0.2, na.rm = T, 
+                 fill = 'lightblue4', color = 'black') +
+  labs(
+    title = "Distribution of Log GDP per Capita by Countries",
+    x = "Log GDP per Capita",
+    y = "Number of Countries"
+  ) +
+  theme_minimal()
+
+```
+
+HISTOGRAM ANALYSIS
+
+With the majority of nations grouped between 8 and 10, the log GDP per capita histogram is somewhat skewed to the left, suggesting that moderate economic output per person is typical around the world. A lesser number of nations, probably from affluent regions like Western Europe and North America & ANZ, fall outside of this range. Our research question is supported by this distribution, which demonstrates that although GDP is a good indicator of happiness, its unequal distribution across regions emphasizes the need to take other factors into account, particularly in lower-income areas where other factors like social support may have a greater impact on wellbeing.
+
+### COMMENTS ON DIST - SOCIAL SUPPORT
+
+-   **Social Support:** Ranging from 0 to 1, this variable is a measure of response when participants are asked:
+
+    *"If you were in trouble, do you have relatives or friends you can count on to help you whenever you need them, or not?"*
+
+    Through this question, the variable captures the perceived availability of reliable social connections. Higher values indicate a stronger sense of social support, which is often associated with greater emotional well-being and resilience in the face of hardship.
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig.align: 'center'
+#| out.width: '60%'
+Happiness_Data %>% 
+  filter(!is.na(Social.support)) %>% 
+  ggplot(data = Happiness_Data, mapping = aes(x = Social.support)) +
+  geom_histogram(binwidth = 0.05, na.rm = T, 
+                 fill = 'lightblue4', color = 'black') +
+  labs(
+    title = "Distribution of Social Support by Countries",
+    x = "Social Support",
+    y = "Number of Countries"
+  ) +
+  theme_minimal()
+```
+
+HISTOGRAM ANALYSIS
+
+The majority of nations report high levels (over 0.75), and the social support histogram displays a moderate left-skewed distribution. This implies that social networks are typically seen as robust by individuals all across the world. According to the World Happiness Report, social support is a major factor in wellbeing, particularly in areas with lower GDPs. The distribution lends credence to the notion that global happiness is significantly influenced by relational and emotional elements in addition to economic ones.
+
+### COMMENTS ON DIST - LIFE EXPECTANCY
+
+-   **Healthy Life Expectancy at Birth:** This variable represents the average number of years a person born in a given country can expect to live in good health. It accounts the total length of life as well as quality of those years, adjusting for years lived in deteriorated health due to disease or disability. Higher values indicate better overall health conditions and access to healthcare, and it serves as a key indicator of national well-being and public health infrastructure.
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig.align: 'center'
+#| out.width: '60%'
+Happiness_Data %>% 
+  filter(!is.na(Healthy.life.expectancy.at.birth)) %>% 
+  ggplot(data = Happiness_Data, 
+         mapping = aes(x = Healthy.life.expectancy.at.birth)) +
+  geom_histogram(binwidth = 4, na.rm = T, 
+                 fill = 'lightblue4', color = 'black') +
+  labs(
+    title = "Healthy Life Expectancy at Birth by Countries",
+    x = "Healthy Life Expectancy at Birth",
+    y = "Number of Countries"
+  ) +
+  theme_minimal()
+```
+
+HISTOGRAM ANALYSIS
+
+The histogram is left-skewed, with most countries concentrated between 60–70 years, reflecting generally good worldwide health. The long tail on the lower end, however, reveals notable differences, indicating that healthcare quality and access continue to differ greatly and can affect the well-being of a country.
+
+### COMMENTS ON DIST - FREEDOM OF LIFE CHOICES
+
+-   **Freedom to make Life Choices:** This variable is a 0 to 1 measure of a countries average response to the question:
+
+    *Are you satisfied or dissatisfied with your freedom to choose what you do with your life?*
+
+    Higher values indicate that more people in a country feel they have greater personal autonomy and decision-making. This variable reflects the perceived ability of individuals to shape their own lives, which is closely linked to overall life satisfaction.
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig.align: 'center'
+#| out.width: '60%'
+Happiness_Data %>% 
+  filter(!is.na(Freedom.to.make.life.choices)) %>% 
+  ggplot(data = Happiness_Data, 
+         mapping = aes(x = Freedom.to.make.life.choices)) +
+  geom_histogram(binwidth = 0.05, na.rm = T, 
+                 fill = 'lightblue4', color = 'black') +
+  labs(
+    title = "Freedom to make Life Choices by Countries",
+    x = "Freedom Score",
+    y = "Number of Countries"
+  ) +
+  theme_minimal()
+```
+
+HISTOGRAM ANALYSIS
+
+With a clear bias toward scores above 0.6, the histogram demonstrates that the majority of nations report high levels of felt freedom to make life decisions. This implies that people believe they have a great deal of personal autonomy in many different places. The disparity at the lower end, however, suggests that this autonomy may be restricted in certain nations—likely those with less political or social freedom. In relation to our research issue, this lends credence to the notion that the impact of freedom on pleasure varies and might be especially significant in areas with a deficiency of other structural supports.
+
+### COMMENTS ON DIST - GENEROSITY
+
+-   **Generosity:** This variable is a measure of the perceived generosity of a country, based on responses to the question:
+
+    *"Have you donated money to a charity in the past month?"*
+
+    This variable reflects the extent to which people in a country report recent acts of generosity, such as donating to charity. However, rather than using raw percentages, the World Happiness Report calculates generosity as the residual from a regression that adjusts for GDP Per Capita. This means values can be positive or negative, depending on whether a country is more or less generous than expected based on its income. Higher values indicate greater-than-expected generosity, reflecting strong pro-social behavior and social capital.
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig.align: 'center'
+#| out.width: '60%'
+Happiness_Data %>% 
+  filter(!is.na(Generosity)) %>% 
+  ggplot(data = Happiness_Data, 
+         mapping = aes(x = Generosity)) +
+  geom_histogram(binwidth = 0.05, na.rm = T, 
+                 fill = 'lightblue4', color = 'black') +
+  labs(
+    title = "Distribution of Generosity by Countries",
+    x = "Generosity Score",
+    y = "Number of Countries"
+  ) +
+  theme_minimal()
+```
+
+HISTOGRAM ANALYSIS
+
+Most nations cluster around a generosity score close to zero, indicating a slightly left-skewed generosity histogram. This implies that the generosity of the majority of nations is about what one would anticipate given their wealth levels. Fewer nations have notably positive ratings, which indicate generosity that is above expectations, while a few have negative scores, which indicate generosity that is below expectations. This distribution illustrates the differences in social capital and pro-social conduct between countries despite comparable economic circumstances, which is consistent with the notion of generosity as a residual.
+
+### COMMENTS ON DIST - CORRUPTION
+
+-   **Perceptions of Corruption:**
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig.align: 'center'
+#| out.width: '60%'
+Happiness_Data %>% 
+  filter(!is.na(Perceptions.of.corruption)) %>% 
+  ggplot(data = Happiness_Data, 
+         mapping = aes(x = Perceptions.of.corruption)) +
+  geom_histogram(binwidth = 0.05, na.rm = T, 
+                 fill = 'lightblue4', color = 'black') +
+  labs(
+    title = "Perceptions of Corruption by Countries",
+    x = "Perceptions of Corruption Score",
+    y = "Number of Countries"
+  ) +
+  theme_minimal()
+```
+
+HISTOGRAM ANALYSIS
+
+The majority of nations scored higher than 0.6 on the perceptions of corruption histogram, which displays a distribution that is skewed to the right. This implies that most nations believe corruption to be at a relatively low level. Strong public trust in institutions is shown in many places by the peak, which falls between 0.75 and 0.85. This supports the report's conclusion that higher scores indicate a better level of trust in the honesty of the public and private sectors.
+
+### COMMENTS ON DIST - POSITIVE AFFECT
+
+-   **Positive Affect:**
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig.align: 'center'
+#| out.width: '60%'
+Happiness_Data %>% 
+  filter(!is.na(Positive.affect)) %>% 
+  ggplot(data = Happiness_Data, 
+         mapping = aes(x = Positive.affect)) +
+  geom_histogram(binwidth = 0.05, na.rm = T, 
+                 fill = 'lightblue4', color = 'black') +
+  labs(
+    title = "Distribution of Positive Affect by Countries",
+    x = "Positive Affect",
+    y = "Number of Countries"
+  ) +
+  theme_minimal()
+```
+
+HISTOGRAM ANALYSIS
+
+Most nations fell between 0.55 and 0.75 on the happy Affect histogram, indicating a high degree of reported happy feelings overall. We may imply that the effect of positive effect is constant across different regions.
+
+### COMMENTS ON DIST - NEGATIVE AFFECT
+
+-   **Negative Affect:**
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig.align: 'center'
+#| out.width: '60%'
+Happiness_Data %>% 
+  filter(!is.na(Negative.affect)) %>% 
+  ggplot(data = Happiness_Data, 
+         mapping = aes(x = Negative.affect)) +
+  geom_histogram(binwidth = 0.05, na.rm = T, 
+                 fill = 'lightblue4', color = 'black') +
+  labs(
+    title = "Distribution of Negative Affect by Countries",
+    x = "Negative Affect",
+    y = "Number of Countries"
+  ) +
+  theme_minimal()
+```
+
+HISTOGRAM ANALYSIS
+
+The majority of nations have comparatively low levels of unpleasant emotional experiences, according to the negative affect histogram, which has a right-skewed distribution. The peak falls between 0.2 and 0.3, indicating that people in many nations report low frequency of unpleasant emotions like melancholy, anger, or concern. Extreme emotional anguish is rare in the dataset, as only a small number of nations report significant levels of negative affect.
+
+LIFE LADDER OVER TIME
+
+To explore how global happiness has changed over time, we examined the distribution of Life Ladder scores across the years included in the data set. To do so, we calculated the grand mean of each country and grouped the values by year and generated a line plot to observe year-to-year trends.
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig.align: 'center'
+#| out.width: '60%'
+Happiness_Data %>%
+  group_by(year) %>%
+  summarize(mean_life_ladder = mean(Life.Ladder, na.rm = TRUE)) %>%
+  ggplot(aes(x = year, y = mean_life_ladder)) +
+  geom_line(color = "steelblue", linewidth = 1.2) +
+  geom_point() +
+  labs(title = "Global Average Life Ladder Score Over Time",
+       x = "Year", y = "Average Life Ladder (Happiness)") +
+  theme_minimal()
+
+```
+
+Based on our Line Plot, we see that global happiness saw slightly over a 1.0 drop from 2005 to 2006, which may have been due to external factors relating to the sampling of data and improved methodology rather than a true shift in well-being. After 2007, happiness levels have remained relatively stable with slight upward trends up until 2020. After 2020, happiness levels saw a gradual decrease up until 2022 which reflects world-wide disruptions resulting from the COVID-19 pandemic. Overall, trends appear very minimal.
+
+After observing the distribution of all variables as well as life ladder ratings across the years, we now separated our data into world regions, as designated by the World Happiness Report.
+
+```{r}
+#| echo: false
+#| warning: false
+library(dplyr)
+
+Happiness_Data <- Happiness_Data %>%
+  mutate(Region = case_when(
+    # Western Europe
+    Country.name %in% c("Austria", "Belgium", "Denmark", "Finland", "France", "Germany", "Iceland",
+                        "Ireland", "Italy", "Luxembourg", "Malta", "Netherlands", "Norway",
+                        "Portugal", "Spain", "Sweden", "Switzerland", "United Kingdom", "Greece", "Cyprus") ~ "Western Europe",
+
+    # North America and ANZ
+    Country.name %in% c("Canada", "United States", "Australia", "New Zealand") ~ "North America and ANZ",
+
+    # Latin America and Caribbean
+    Country.name %in% c("Argentina", "Belize", "Bolivia", "Brazil", "Chile", "Colombia", "Costa Rica",
+                        "Cuba", "Dominican Republic", "Ecuador", "El Salvador", "Guatemala", "Haiti",
+                        "Honduras", "Jamaica", "Mexico", "Nicaragua", "Panama", "Paraguay", "Peru",
+                        "Suriname", "Trinidad and Tobago", "Uruguay", "Venezuela", "Guyana") ~ "Latin America and Caribbean",
+
+    # Central and Eastern Europe
+    Country.name %in% c("Albania", "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Czechia",
+                        "Estonia", "Hungary", "Kosovo", "Latvia", "Lithuania", "Montenegro",
+                        "North Macedonia", "Poland", "Romania", "Serbia", "Slovakia", "Slovenia") ~ "Central and Eastern Europe",
+
+    # Commonwealth of Independent States (CIS)
+    Country.name %in% c("Armenia", "Azerbaijan", "Belarus", "Kazakhstan", "Kyrgyzstan", "Moldova",
+                        "Russia", "Tajikistan", "Turkmenistan", "Ukraine", "Uzbekistan", "Georgia") ~ "CIS",
+
+    # Sub-Saharan Africa
+    Country.name %in% c("Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cameroon",
+                        "Central African Republic", "Chad", "Congo (Brazzaville)", "Congo (Kinshasa)",
+                        "Eswatini", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea", "Ivory Coast",
+                        "Kenya", "Lesotho", "Liberia", "Madagascar", "Malawi", "Mali", "Mauritania",
+                        "Mauritius", "Mozambique", "Namibia", "Niger", "Nigeria", "Rwanda", "Senegal",
+                        "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Togo",
+                        "Uganda", "Tanzania", "Zambia", "Zimbabwe", "Somaliland region", "Comoros", "Djibouti") ~ "Sub-Saharan Africa",
+
+    # South Asia
+    Country.name %in% c("Afghanistan", "Bangladesh", "Bhutan", "India", "Nepal", "Pakistan", 
+                        "Sri Lanka", "Maldives") ~ "South Asia",
+
+    # East Asia
+    Country.name %in% c("China", "Hong Kong S.A.R. of China", "Japan", "Mongolia",
+                        "South Korea", "Taiwan Province of China") ~ "East Asia",
+
+    # Southeast Asia
+    Country.name %in% c("Cambodia", "Indonesia", "Laos", "Malaysia", "Myanmar", "Philippines",
+                        "Singapore", "Thailand", "Vietnam") ~ "Southeast Asia",
+
+    # Middle East and North Africa
+    Country.name %in% c("Algeria", "Bahrain", "Egypt", "Iran", "Iraq", "Israel", "Jordan",
+                        "Kuwait", "Lebanon", "Libya", "Morocco", "Oman", "Qatar", "Saudi Arabia",
+                        "State of Palestine", "Syria", "Tunisia", "Turkiye", "United Arab Emirates",
+                        "Yemen") ~ "Middle East and North Africa",
+
+    TRUE ~ "Other"
+  ))
+
+unique(Happiness_Data$Region) %>% knitr::kable()
+```
+
+The World Happiness Report uses the 10 regions described above. With these regions, we aim to see if any variables hold varied significance across the world. To begin with, we visualized the distribution of Life Ladder scores by Region.
+
+```{r}
+#| echo: false
+#| warning: false
+Happiness_Data %>%
+  drop_na(Life.Ladder, Region) %>%
+  ggplot(aes(x = Region, y = Life.Ladder, fill = Region)) +
+  geom_boxplot() +
+  labs(title = "Distribution of Life Ladder Scores by Region",
+       x = "Region", y = "Life Ladder (Happiness)", 
+       fill = "Region") +
+  scale_fill_brewer(palette ='Set3') +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(), 
+        legend.position = "right")
+
+```
+
+Based on our side-by-side Boxplot of all 10 regions, we see that Western Europe as well as North America and ANZ average significantly higher happiness scores than their non-western counterparts. While it could reflect a difference in happiness score from western and non-western countries, it raises concern in the bias of data collected. These differences could be the result of systemic economic inequalities or cultural values that influence how happiness is both experienced and reported. To figure out the roots of this disparity, we created multiple scatter plots to determine whether GDP is a consistent predictor of happiness across all regions. By doing so, we hope to see whether there's evidence to suggest that happiness is valued different across regions.
+
+```{r, message=FALSE, fig.align='center', fig.height=10, fig.width=10}
+#| echo: false
+#| warning: false
+#| out.width: '70%'
+Happiness_Data <- Happiness_Data %>%
+  mutate(Region_label = case_when(
+    Region == "Latin America and Caribbean" ~ "LatAm & Caribbean",
+    Region == "North America and ANZ" ~ "NA & ANZ",
+    Region == "Middle East and North Africa" ~ "MENA",
+    Region == "Central and Eastern Europe" ~ "Central & East Europe",
+    TRUE ~ Region
+  ))
+
+Happiness_Data %>%
+  drop_na(Life.Ladder, Log.GDP.per.capita, Region_label) %>%
+  ggplot(aes(x = Log.GDP.per.capita, y = Life.Ladder)) +
+  geom_point(alpha = 0.4, size = 1.2, color = 'darkslategray') +
+  geom_smooth(method = "lm", color = "tomato", se = FALSE, linewidth = 1) +
+  facet_wrap(~ Region_label, ncol = 2, scales = 'free_y') +
+  labs(
+    title = "Happiness vs Log GDP per Capita by Region",
+    x = "Log GDP per Capita", 
+    y = "Life Ladder"
+    ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 10, face = "bold"),
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold")
+  )
+```
+
+For this graph, the strength of connection between GDP and happiness varies across different regions, that is, the strength of the link to happiness is not always positively correlated with the level of wealth in a region. For instance, we see a negative correlation with North America & ANZ despite there being positive associations in all other regions. This implies the importance of non-economic factors and that happiness can not be predicted by GDP alone.
+
+With our data sorted into 10 regions, we created a violin plot to show how the distribution of all 8 predictors vary by region.
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig.align: 'center'
+# Violin Plots: Comparing Distributions of Predictors by Region
+Happiness_Data %>%
+  drop_na(Log.GDP.per.capita, Social.support, 
+          Healthy.life.expectancy.at.birth,
+          Freedom.to.make.life.choices, Generosity, 
+          Perceptions.of.corruption,
+          Positive.affect, Negative.affect, Region) %>% 
+  pivot_longer(cols = c(
+    Log.GDP.per.capita, Social.support, Healthy.life.expectancy.at.birth,
+    Freedom.to.make.life.choices, Generosity, Perceptions.of.corruption,
+    Positive.affect, Negative.affect),
+    names_to = "Variable", values_to = "Value") %>%
+  mutate(Region = recode(Region,
+    "Latin America and Caribbean" = "Latin America\nand Caribbean",
+    "North America and ANZ" = "NA\n& ANZ",
+    "Middle East and North Africa" = "MENA",
+    "Central and Eastern Europe" = "Central &\nEastern Europe")) %>% 
+  mutate(Variable = recode(Variable,
+    "Log.GDP.per.capita" = "Log GDP",
+    "Social.support" = "Social Support",
+    "Healthy.life.expectancy.at.birth" = "Life Expectancy",
+    "Freedom.to.make.life.choices" = "Freedom")
+    ) %>%
+  ggplot(aes(x = Region, y = Value, fill = Region)) +
+  geom_violin(trim = FALSE, alpha = 0.7) +
+  facet_wrap(~ Variable, scales = "free", ncol = 3) +
+  theme_minimal() +
+  guides(fill = guide_legend(nrow = 2, byrow = TRUE)) +
+  theme(
+    legend.position = "bottom",
+  legend.box = "horizontal",
+  legend.title = element_blank(),
+  legend.text = element_text(size = 8),
+  legend.key.size = unit(0.5, "lines"),
+  legend.spacing.x = unit(0.3, 'cm'),
+  legend.margin = margin(t = -5, unit = "pt"),
+  axis.text.x = element_blank(),        # remove x-axis labels
+  axis.ticks.x = element_blank(),       # remove x-axis ticks
+  strip.text = element_text(size = 6, face = "bold"),
+  plot.title = element_text(hjust = 0.5, size = 14, face = "bold")
+)+
+  labs(
+    title = "Key Predictors Distribution by Region",
+    x = "Region", y = 'Values Scored'
+  )
+```
+
+Within each subset, we see that the distribution of these key predictors vary considerably by region. For Log GDP per Capita, we see that Western Europe and North America & ANZ show higher averages than all other world regions. For Social Support, we see South Asia and Sub-Saharan Africa score considerably higher, on average, than all other world regions. For Freedom, we see South Asia, Southeast Asia, and Western Europe share relatively similar distributions among higher averages than the rest of the regions. High-income regions tend to have higher score across key predictors like GDP, social support, life expectancy, and freedom. Other regions show more variation and lower averages. This implies that disparities in these predictors contribute to global differences in happiness.
+
+With so many predictors used to calculate Life Ladder, we suspect there to be interactions among these predictors that could be confounding. Thus, we created a correlation matrix to quantify how much the values relate to one another.
+
+```{r}
+#| echo: false
+#| warning: false
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+Happiness_Data %>%
+  select(
+    Life.Ladder,
+    Log.GDP.per.capita,
+    Social.support,
+    Healthy.life.expectancy.at.birth,
+    Freedom.to.make.life.choices,
+    Generosity,
+    Perceptions.of.corruption,
+    Positive.affect,
+    Negative.affect
+  ) %>%
+  drop_na() %>%
+  cor() %>%
+  round(3) %>%
+  kable("latex", booktabs = TRUE, caption = "Correlation Matrix of Happiness Indicators") %>%
+  kable_styling(latex_options = c("scale_down", "hold_position"))
+
+
+
+```
+
+COMMENTS
+
+To better understand the drivers of happiness across different regions, we employed linear regression models to identify key predictors for Life Ladder scores. We calculated 10 separate linear models for all 10 regions to capture regional differences in predictor significance.
+
+```{r}
+# Dropping NA Values
+Happiness_data <- Happiness_Data %>%
+  drop_na(Life.Ladder, Log.GDP.per.capita, Social.support,
+          Healthy.life.expectancy.at.birth, 
+          Freedom.to.make.life.choices, Generosity, 
+          Perceptions.of.corruption, Region, 
+          Positive.affect, Negative.affect)
+
+# South Asia (1)
+SouthAsia <- Happiness_Data %>% 
+  filter(Region == "South Asia") %>% 
+  lm(Life.Ladder ~ Log.GDP.per.capita + 
+                    Social.support + 
+                    Healthy.life.expectancy.at.birth +
+                    Freedom.to.make.life.choices + 
+                    Generosity + Perceptions.of.corruption +
+                    Positive.affect + Negative.affect,
+                    data = .)
+
+# East Asia (2)
+EastAsia <- Happiness_Data %>% 
+  filter(Region == "East Asia") %>% 
+  lm(Life.Ladder ~ Log.GDP.per.capita + 
+                    Social.support + 
+                    Healthy.life.expectancy.at.birth +
+                    Freedom.to.make.life.choices + 
+                    Generosity + Perceptions.of.corruption +
+                    Positive.affect + Negative.affect,
+                    data = .)
+
+# Middle East and North Africa (3)
+MiddleEast_NorthAfrica <- Happiness_Data %>% 
+  filter(Region == "Middle East and North Africa") %>% 
+  lm(Life.Ladder ~ Log.GDP.per.capita + 
+                    Social.support + 
+                    Healthy.life.expectancy.at.birth +
+                    Freedom.to.make.life.choices + 
+                    Generosity + Perceptions.of.corruption +
+                    Positive.affect + Negative.affect,
+                    data = .)
+
+# Latin America and Caribbean (4)
+LatinAmerica_Caribbean <- Happiness_Data %>% 
+  filter(Region == "Latin America and Caribbean") %>% 
+  lm(Life.Ladder ~ Log.GDP.per.capita + 
+                    Social.support + 
+                    Healthy.life.expectancy.at.birth +
+                    Freedom.to.make.life.choices + 
+                    Generosity + Perceptions.of.corruption +
+                    Positive.affect + Negative.affect,
+                    data = .)
+
+# Central and Eastern Europe (5)
+CentralEasternEurope <- Happiness_Data %>% 
+  filter(Region == "Central and Eastern Europe") %>% 
+  lm(Life.Ladder ~ Log.GDP.per.capita + 
+                    Social.support + 
+                    Healthy.life.expectancy.at.birth +
+                    Freedom.to.make.life.choices + 
+                    Generosity + Perceptions.of.corruption +
+                    Positive.affect + Negative.affect,
+                    data = .)
+
+# North America and ANZ (6)
+NorthAmerica_ANZ <- Happiness_Data %>% 
+  filter(Region == "North America and ANZ") %>% 
+  lm(Life.Ladder ~ Log.GDP.per.capita + 
+                    Social.support + 
+                    Healthy.life.expectancy.at.birth +
+                    Freedom.to.make.life.choices + 
+                    Generosity + Perceptions.of.corruption +
+                    Positive.affect + Negative.affect,
+                    data = .)
+
+# Sub-Saharan Africa (7)
+SubSaharanAfrica <- Happiness_Data %>% 
+  filter(Region == "Sub-Saharan Africa") %>% 
+  lm(Life.Ladder ~ Log.GDP.per.capita + 
+                    Social.support + 
+                    Healthy.life.expectancy.at.birth +
+                    Freedom.to.make.life.choices + 
+                    Generosity + Perceptions.of.corruption +
+                    Positive.affect + Negative.affect,
+                    data = .)
+
+# Commonwealth of Independent States (8)
+CIS <- Happiness_Data %>% 
+  filter(Region == "CIS") %>% 
+  lm(Life.Ladder ~ Log.GDP.per.capita + 
+                    Social.support + 
+                    Healthy.life.expectancy.at.birth +
+                    Freedom.to.make.life.choices + 
+                    Generosity + Perceptions.of.corruption +
+                    Positive.affect + Negative.affect,
+                    data = .)
+
+# Southeast Asia (9)
+SoutheastAsia <- Happiness_Data %>% 
+  filter(Region == "Southeast Asia") %>% 
+  lm(Life.Ladder ~ Log.GDP.per.capita + 
+                    Social.support + 
+                    Healthy.life.expectancy.at.birth +
+                    Freedom.to.make.life.choices + 
+                    Generosity + Perceptions.of.corruption +
+                    Positive.affect + Negative.affect,
+                    data = .)
+
+# Western Europe
+WesternEurope <- Happiness_Data %>% 
+  filter(Region == "Western Europe") %>% 
+  lm(Life.Ladder ~ Log.GDP.per.capita + 
+                    Social.support + 
+                    Healthy.life.expectancy.at.birth +
+                    Freedom.to.make.life.choices + 
+                    Generosity + Perceptions.of.corruption +
+                    Positive.affect + Negative.affect,
+                    data = .)
+
+
+```
+
+**Linear Regression Model of South Asia**
+
+```{r}
+library(broom)
+tidy(SouthAsia) %>% 
+  kable(., digits=5, caption='Linear Model Summary for South Asia')
+
+```
+
+At the 0.05 significance level, several predictors were found to be statistically significant in explaining Life Ladder scores for South Asia. We found that Log GDP per Capita and Social Support both had positive coefficients and p-values below 0.05, indicating that economic prosperity and interpersonal support contribute meaningfully to happiness in the region. Perceptions of Corruption, Positive Affect, and Negative Affect were all negatively associated with Life Ladder scores and statistically significant, suggesting that perceived corruption, lower positive emotion, and higher negative emotion each detract from subjective well-being. Healthy Life Expectancy was marginally significant with a negative coefficient. In contrast, Freedom to Make Life Choices and Generosity were not significant, suggesting that these factors may not play as strong a role in shaping happiness in South Asia. Overall, the model highlights the importance of both structural factors and emotional experiences in understanding well-being within this region.
+
+**Linear Regression Model of Southeast Asia**
+
+```{r}
+tidy(SoutheastAsia) %>% 
+  kable(., digits=5, caption='Linear Model Summary for Southeast Asia')
+```
+
+Based on our linear regression model for Southeast Asia, we find that Log GDP per Capita and Social Support are statistically significant predictors of happiness at the 0.05 level, both with p-values below 0.001. This suggests that economic prosperity and strong social networks are key contributors to life satisfaction in the region. Log GDP per Capita has an estimate of approximately 0.47, while Social Support has the highest estimate at around 3.03, indicating a strong positive relationship with the Life Ladder score. Generosity also emerged as a significant predictor but with a negative association (Est = -0.46, p = 0.003), which may reflect complex regional dynamics around giving and well-being. Negative Affect showed a significant negative relationship as well (Est = -1.43, p = 0.002), whereas Positive Affect was marginally significant (Est = 0.89, p = 0.065). Other variables such as Healthy Life Expectancy, Freedom, and Perceptions of Corruption were not statistically significant in this model. Compared to South Asia, Southeast Asia places a stronger emphasis on both economic and emotional well-being as drivers of happiness.
+
+**Linear Regression Model of East Asia**
+
+```{r}
+tidy(EastAsia) %>% 
+  kable(., digits=5, caption='Linear Model Summary for East Asia')
+```
+
+Based on our linear regression model for East Asia, Generosity is the only statistically significant predictor of happiness at the 0.05 level (Est = 2.13, p = 0.011). This suggests that altruistic behaviors may play a particularly meaningful role in subjective well-being within this region. While Log GDP per Capita has a positive estimate (Est = 0.56), it is not statistically significant (p = 0.268), indicating that economic prosperity may not be as central to happiness in East Asia as it is in other regions. Social Support, while positive, is also non-significant (Est = 1.41, p = 0.391), and Positive and Negative Affect do not appear to meaningfully predict Life Ladder scores in this context. Other variables such as Healthy Life Expectancy, Freedom, and Perceptions of Corruption also failed to reach significance. Compared to regions like Southeast Asia, where both economic and social factors were highly influential, East Asia appears to uniquely emphasize generosity as a primary contributor to happiness.
+
+**Linear Regression Model of Commonwealth of Independent States**
+
+```{r}
+tidy(CIS) %>% 
+  kable(., digits=5, caption='Linear Model Summary for CIS')
+```
+
+The linear regression model for the Commonwealth of Independent States (CIS) indicates that Log GDP per Capita, Social Support, Freedom, and Positive Affect are statistically significant predictors of happiness at the 0.05 level. Among these, Social Support has the strongest effect (Est = 2.18, p \< 0.001), highlighting the value of interpersonal relationships and social networks in the region. Freedom also plays an important role (Est = 1.43, p \< 0.001), suggesting that perceived autonomy contributes meaningfully to well-being. Log GDP per Capita (Est = 0.26, p \< 0.001) supports the idea that economic prosperity positively relates to happiness. Positive Affect shows a significant positive relationship (Est = 2.58, p \< 0.001), emphasizing the role of emotional experience in subjective well-being. Other predictors such as Healthy Life Expectancy, Generosity, Perceptions of Corruption, and Negative Affect did not show significant effects. Compared to East Asia, CIS places relatively more emphasis on both social and emotional factors in contributing to life satisfaction.
+
+**Linear Regression Model of Middle East and North Africa**
+
+```{r}
+tidy(MiddleEast_NorthAfrica) %>% 
+  kable(., digits=5, caption='Linear Model Summary for Middle East & North Africa')
+```
+
+The linear regression model for the Middle East and North Africa reveals several statistically significant predictors of happiness at the 0.05 level. Positive Affect has the strongest association with happiness (Est = 4.31, p \< 0.001), highlighting the importance of day-to-day emotional experiences in this region. Log GDP per Capita (Est = 0.40, p \< 0.001) and Social Support (Est = 1.98, p \< 0.001) are also strong predictors, reinforcing the consistent global pattern of economic prosperity and supportive relationships contributing to life satisfaction. Healthy Life Expectancy is statistically significant (Est = 0.056, p = 0.0018), suggesting that better health outcomes also play a role. Additionally, both Generosity (Est = 0.83, p = 0.012) and Perceptions of Corruption (Est = 0.89, p = 0.016) show positive associations, though the latter’s direction may be counterintuitive and worth further examination. Freedom and Negative Affect were not statistically significant. Compared to regions like South Asia and CIS, the Middle East and North Africa appears to place a particularly strong emphasis on emotional and social dimensions of well-being.
+
+**Linear Regression Model of Sub-Saharan Africa**
+
+```{r}
+tidy(SubSaharanAfrica) %>% 
+  kable(., digits=5, caption='Linear Model Summary for Sub-Saharan Africa')
+```
+
+The linear regression model for Sub-Saharan Africa indicates that several predictors are statistically significant at the 0.05 level. Log GDP per Capita (Est = 0.24, p \< 0.001) and Social Support (Est = 1.10, p \< 0.001) both show strong positive relationships with happiness, aligning with global trends that highlight the importance of economic stability and supportive relationships. Positive Affect (Est = 1.77, p \< 0.001) also has a substantial impact, suggesting that emotional well-being is a key component of life satisfaction in this region. In addition, both Freedom (Est = 0.56, p = 0.028) and Generosity (Est = 0.66, p = 0.023) are statistically significant, reinforcing the value of autonomy and prosocial behavior in predicting happiness. Negative Affect is also positively associated (Est = 1.08, p = 0.0008), which is somewhat unexpected and may reflect the complex emotional dynamics within the region. In contrast, Healthy Life Expectancy and Perceptions of Corruption were not statistically significant. Overall, the findings suggest that both economic and emotional factors, as well as personal freedom and generosity, play a meaningful role in shaping happiness in Sub-Saharan Africa.
+
+**Linear Regression Model of Latin America and Caribbean**
+
+```{r}
+tidy(LatinAmerica_Caribbean) %>% 
+  kable(., digits=5, caption='Linear Model Summary for Latin America & Caribbean')
+```
+
+The linear regression model for Latin America & the Caribbean reveals several statistically significant predictors of happiness at the 0.05 level. Log GDP per Capita (Est = 0.37, p \< 0.001) and Social Support (Est = 1.51, p = 0.007) show strong positive associations with Life Ladder scores, suggesting that both economic conditions and interpersonal relationships contribute meaningfully to well-being in this region. Positive Affect (Est = 2.95, p \< 0.001) is one of the strongest predictors, highlighting the central role of emotional positivity in perceived happiness. Additionally, Freedom (Est = 0.77, p = 0.026) and Negative Affect (Est = –1.41, p = 0.024) are also significant, indicating that autonomy enhances happiness while frequent negative emotions detract from it. Perceptions of Corruption show a significant negative relationship (Est = –1.15, p = 0.0005), reinforcing the importance of trust in institutions. In contrast, Generosity and Healthy Life Expectancy were not statistically significant in this model. These results suggest that in Latin America & the Caribbean, happiness is shaped by a blend of economic stability, emotional experiences, and social-political context.
+
+**Linear Regression Model of North America and ANZ**
+
+```{r}
+tidy(NorthAmerica_ANZ) %>% 
+  kable(., digits=5, caption='Linear Model Summary for North America & ANZ')
+```
+
+The linear regression model for North America & ANZ identifies several statistically significant predictors of happiness. Social Support (Est = 3.88, p \< 0.001) emerges as the strongest contributor, underscoring the value placed on close interpersonal relationships in this region. Positive Affect (Est = 3.13, p \< 0.001) also plays a key role, indicating that individuals who report more frequent positive emotions tend to report higher life satisfaction. Additional significant predictors include Healthy Life Expectancy (Est = 0.038, p = 0.014), Freedom (Est = 1.17, p = 0.030), Generosity (Est = 0.47, p = 0.029), and Perceptions of Corruption (Est = 0.53, p = 0.034), all of which are positively associated with happiness. Interestingly, Log GDP per Capita (Est = 0.078, p = 0.775) is not statistically significant, suggesting that in highly developed countries like those in this region, economic factors may not be the primary drivers of happiness. These findings indicate that well-being in North America & ANZ is more influenced by emotional and social dimensions than by material wealth.
+
+**Linear Regression Model of Central and Eastern Europe**
+
+```{r}
+tidy(CentralEasternEurope) %>% 
+  kable(., digits=5, caption='Linear Model Summary for Central & Eastern Europe')
+```
+
+The linear regression model for Central & Eastern Europe reveals several significant predictors of happiness. Log GDP per Capita (Est = 0.72, p \< 0.001) and Healthy Life Expectancy (Est = 0.11, p \< 0.001) both show strong positive associations with happiness, suggesting that economic stability and good health are foundational to well-being in this region. Social Support (Est = 1.37, p = 0.010) also emerges as a meaningful contributor, indicating that having supportive relationships plays an important role. Positive Affect (Est = 1.28, p = 0.033) is statistically significant as well, reinforcing the idea that emotional well-being is tied to overall life satisfaction. Other variables, including Freedom, Generosity, and Perceptions of Corruption, do not reach statistical significance, suggesting their influence on happiness is less pronounced in this region. Overall, these findings point to a balance of economic, health, and emotional factors driving happiness in Central & Eastern Europe.
+
+**Linear Regression Model of Western Europe**
+
+```{r}
+tidy(WesternEurope) %>% 
+  kable(., digits=5, caption='Linear Model Summary for Western Europe')
+```
+
+The linear regression model for Western Europe indicates that several variables significantly predict happiness. Social Support (Est = 2.87, p \< 0.001) stands out as the most influential factor, emphasizing the importance of close relationships and community ties in this region. Negative Affect is also highly significant and negatively associated with happiness (Est = -3.03, p \< 0.001), highlighting how lower levels of distress and negative emotion are strongly linked to better well-being. Perceptions of Corruption (Est = -0.97, p \< 0.001) show a strong negative relationship as well, suggesting that perceived integrity in institutions is a major contributor to happiness. Healthy Life Expectancy (Est = 0.06, p = 0.0012) and Generosity (Est = 0.48, p \< 0.001) are also significant, though with smaller effect sizes. Meanwhile, variables such as Log GDP per Capita, Freedom, and Positive Affect do not reach statistical significance. These results suggest that emotional well-being, institutional trust, and interpersonal support are the most important drivers of happiness in Western Europe.
+
+**Limitations of Linear Regression**
+
+# Conclusion
+
+While some factors, such as GDP per capita, social support, and life expectancy, are reliably linked to happiness worldwide, their proportional importance varies greatly by location, according to our analysis of the World Happiness Report 2023. While South Asia and Sub-Saharan Africa report lower averages, indicating deeper structural or cultural differences, Western Europe and North America & ANZ typically report higher Life Ladder scores, indicating generally greater life satisfaction.
+
+Using exploratory visualizations, we found that while wealthier areas tend to have happier people, GDP is not a sufficient explanation for all of the differences in wellbeing. Particularly in areas with less economic development, social support and the perception of having the freedom to choose were found to be equally significant. These patterns were supported by our correlation study, which showed that happiness was strongly correlated with a number of variables other than financial standing.
+
+These findings inform us that it is important to consider regional and cultural differences when talking about global welfare. While GDP and social support are important overall, their effects on happiness vary by region. In one part of the world, the elements that affect happiness may not have the same impact in another. As a result, a broad strategy is unlikely to succeed. It is more reasonable to use region-specific tactics that prioritize the most relevant factors for each site in order to improve life satisfaction across a variety of demographics.
+
+Future research could improve this strategy even further by using multivariate modeling with regional interaction factors and possibly time series forecasting to assess the long-term effects of global events or policy changes on happiness trends.

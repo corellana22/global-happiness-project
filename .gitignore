@@ -1,0 +1,16 @@
+﻿.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+.Rproj
+*.csv
+*.xlsx
+data/raw/
+*.RData
+*_cache/
+cache/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.env
